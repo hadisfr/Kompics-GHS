@@ -13,7 +13,7 @@ public class ReportMessage implements KompicsEvent {
     public int dist;
     public ArrayList<TableRow> route_table;
 
-    public ReportMessage( String src, String dst ,int dist, ArrayList<TableRow> route_table) {
+    public ReportMessage(String src, String dst, int dist, ArrayList<TableRow> route_table) {
         this.dst = dst;
         this.src = src;
         this.dist = dist;

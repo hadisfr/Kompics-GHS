@@ -4,7 +4,7 @@ public class TableRow {
 
     @Override
     public String toString() {
-        return String.format("%s - %s - %s",dst,first_node,dist);
+        return String.format("%s - %s - %s", dst, first_node, dist);
     }
 
     public String dst;
