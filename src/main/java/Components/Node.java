@@ -2,6 +2,7 @@ package Components;
 
 import Events.*;
 import Ports.EdgePort;
+import lombok.ToString;
 import misc.EdgeType;
 import misc.TableRow;
 import org.slf4j.Logger;
@@ -18,7 +19,7 @@ import java.util.*;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.WRITE;
 
-
+@ToString(onlyExplicitlyIncluded = true)
 public class Node extends ComponentDefinition {
     public static final int INFINITE_DISTANCE = 9999;
 
@@ -26,11 +27,16 @@ public class Node extends ComponentDefinition {
 
     Positive<EdgePort> receivePort = positive(EdgePort.class);
     Negative<EdgePort> sendPort = negative(EdgePort.class);
+
+    @ToString.Include
     public String nodeName;
+    @ToString.Include
     public String parentName;
+    @ToString.Include
     public String rootName;
-    public int dist = 10000;
+    @ToString.Include
     public int level;
+    public int dist = 10000;
 
     private int waitForReport;
     private boolean waitForTestResult;
@@ -105,16 +111,14 @@ public class Node extends ComponentDefinition {
         @Override
         public void handle(TestMessage event) {
             if (nodeName.equalsIgnoreCase(event.getDst())) {
-                log("test", event.getSrc(), event.getDst(),
-                        String.format("fragment: %s, level: %s", event.getRootName(), event.getLevel()));
+                logger.info("recv {}", event);
                 handleTest(event);
             }
         }
     };
 
     private void handleTest(TestMessage event) {
-        log("test [process]", event.getSrc(), event.getDst(),
-                String.format("fragment: %s, level: %s", event.getRootName(), event.getLevel()));
+        logger.info("proc {}", event);
 
         if (rootName.equalsIgnoreCase(event.getRootName())) {
             neighboursType.put(event.getSrc(), EdgeType.Rejected);
@@ -127,8 +131,7 @@ public class Node extends ComponentDefinition {
     }
 
     private void postpone(TestMessage event) {
-        log("test [postpone]", event.getSrc(), event.getDst(),
-                String.format("fragment: %s, level: %s", event.getRootName(), event.getLevel()));
+        logger.info("postpone {}", event);
         postponedMessages.add(event);
     }
 
@@ -144,7 +147,7 @@ public class Node extends ComponentDefinition {
         @Override
         public void handle(AcceptMessage event) {
             if (nodeName.equalsIgnoreCase(event.getDst())) {
-                log("accept", event.getSrc(), event.getDst());
+                logger.info("recv {}", event);
                 if (neighboursWeights.get(event.getSrc()) < nearestEdgeNodeDistance) {
                     nearestEdgeNodeDistance = neighboursWeights.get(event.getSrc());
                     nearestEdgeNodeName = event.getSrc();
@@ -160,7 +163,7 @@ public class Node extends ComponentDefinition {
         @Override
         public void handle(RejectMessage event) {
             if (nodeName.equalsIgnoreCase(event.getDst())) {
-                log("reject", event.getSrc(), event.getDst());
+                logger.info("recv {}", event);
                 neighboursType.put(event.getSrc(), EdgeType.Rejected);
                 waitForTestResult = false;
                 sendTest();
@@ -171,7 +174,7 @@ public class Node extends ComponentDefinition {
         @Override
         public void handle(ConnectMessage event) {
             if (nodeName.equalsIgnoreCase(event.getDst())) {
-                log("connect", event.getSrc(), event.getDst());
+                logger.info("recv {}", event);
 
 //                TODO Complete
 
@@ -183,7 +186,7 @@ public class Node extends ComponentDefinition {
         @Override
         public void handle(ChangeRootMessage event) {
             if (nodeName.equalsIgnoreCase(event.getDst())) {
-                log("changeroot", event.getSrc(), event.getDst());
+                logger.info("recv {}", event);
 
 //                TODO Complete
             }
@@ -194,9 +197,7 @@ public class Node extends ComponentDefinition {
         @Override
         public void handle(ReportMessage event) {
             if (nodeName.equalsIgnoreCase(event.getDst())) {
-                log("report", event.getSrc(), event.getDst(),
-                        String.format("candidate node: %s, dist: %s", event.getNearestEdgeNodeName(), event.getNearestEdgeNodeDistance()));
-
+                logger.info("recv {}", event);
                 if (event.getNearestEdgeNodeDistance() < nearestEdgeNodeDistance) {
                     nearestEdgeNodeDistance = event.getNearestEdgeNodeDistance();
                     nearestEdgeNodeName = event.getNearestEdgeNodeName();
@@ -209,8 +210,7 @@ public class Node extends ComponentDefinition {
     };
 
     private void handleInitiateMessage(InitiateMessage event) {
-        log("initiate", event.getSrc(), event.getDst(),
-                String.format("fragment: %s, level: %s", event.getRootName(), event.getLevel()));
+        logger.info("{}", event);
 
         this.rootName = event.getRootName();
         this.level = event.getLevel();
@@ -248,7 +248,7 @@ public class Node extends ComponentDefinition {
                 trigger(new ReportMessage(nodeName, parentName, nearestEdgeNodeName, nearestEdgeNodeDistance,
                         nearestEdgeNodePath), sendPort);
             } else {
-                System.err.println(nodeName + " finds candidate " + nearestEdgeNodeName);
+                System.err.println(this + " finds candidate " + nearestEdgeNodeName);
 //                TODO Complete
             }
         }
@@ -289,14 +289,6 @@ public class Node extends ComponentDefinition {
 
     private boolean isRoot() {
         return nodeName.equalsIgnoreCase(rootName);
-    }
-
-    private void log(String type, String src, String dst, String msg) {
-        logger.info("{} ({} -> {}): {}", type, src, dst, msg);
-    }
-
-    private void log(String type, String src, String dst) {
-        log(type, src, dst, "");
     }
 
     public Node(InitMessage initMessage) {
