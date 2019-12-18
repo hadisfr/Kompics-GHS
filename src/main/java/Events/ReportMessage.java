@@ -1,22 +1,17 @@
 package Events;
 
-
-import misc.TableRow;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 import se.sics.kompics.KompicsEvent;
 
-import java.util.ArrayList;
+import java.util.List;
 
+@Data
+@AllArgsConstructor
 public class ReportMessage implements KompicsEvent {
-
-    public String dst;
-    public String src;
-    public int dist;
-    public ArrayList<TableRow> route_table;
-
-    public ReportMessage(String src, String dst, int dist, ArrayList<TableRow> route_table) {
-        this.dst = dst;
-        this.src = src;
-        this.dist = dist;
-        this.route_table = route_table;
-    }
+    String src;
+    String dst;
+    String nearestEdgeNodeName;
+    int nearestEdgeNodeDistance;
+    List<String> nearestEdgeNodePath;
 }

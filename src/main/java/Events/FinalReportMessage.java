@@ -1,14 +1,19 @@
 package Events;
 
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import misc.TableRow;
 import se.sics.kompics.KompicsEvent;
+
+import java.util.ArrayList;
 
 @Data
 @AllArgsConstructor
-public class RoutingMessage implements KompicsEvent {
+public class FinalReportMessage implements KompicsEvent {
+
     public String src;
     public String dst;
-    public int weight;
-    public int edge_weight;
+    public int dist;
+    public ArrayList<TableRow> route_table;
 }

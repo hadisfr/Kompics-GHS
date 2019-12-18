@@ -46,36 +46,29 @@ public class App extends ComponentDefinition {
             while (scanner.hasNext()) {
                 String line = scanner.nextLine();
 
-                if (i > 0) {
-                    if (line.split(",").length > 1) {
-                        int weight = Integer.parseInt(line.split(",")[1]);
-                        String rel = line.split(",")[0];
-                        String src = rel.split("-")[0];
-                        String dst = rel.split("-")[1];
-                        edges.add(new Edge(src, dst, weight));
-                    } else {
-                        startNode = line;
-                        for (Edge edge : edges) {
-                            if (!components.containsKey(edge.src)) {
-                                Component c = create(Node.class, new InitMessage(edge.src, edge.src.equalsIgnoreCase
-                                        (startNode), findNeighbours(edge.src)));
-                                components.put(edge.src, c);
-                            }
-                            if (!components.containsKey(edge.dst)) {
-                                Component c = create(Node.class, new InitMessage(edge.dst, edge.dst.equalsIgnoreCase
-                                        (startNode), findNeighbours(edge.dst)));
-                                components.put(edge.dst, c);
-                            }
-                            connect(components.get(edge.src).getPositive(EdgePort.class),
-                                    components.get(edge.dst).getNegative(EdgePort.class), Channel.TWO_WAY);
-                            connect(components.get(edge.src).getNegative(EdgePort.class),
-                                    components.get(edge.dst).getPositive(EdgePort.class), Channel.TWO_WAY);
-                        }
-                    }
-                }
-                i++;
+                if (i++ == 0)
+                    continue;
+                int weight = Integer.parseInt(line.split(",")[1]);
+                String rel = line.split(",")[0];
+                String src = rel.split("-")[0];
+                String dst = rel.split("-")[1];
+                edges.add(new Edge(src, dst, weight));
             }
 
+            for (Edge edge : edges) {
+                if (!components.containsKey(edge.src)) {
+                    Component c = create(Node.class, new InitMessage(edge.src, findNeighbours(edge.src)));
+                    components.put(edge.src, c);
+                }
+                if (!components.containsKey(edge.dst)) {
+                    Component c = create(Node.class, new InitMessage(edge.dst, findNeighbours(edge.dst)));
+                    components.put(edge.dst, c);
+                }
+                connect(components.get(edge.src).getPositive(EdgePort.class),
+                        components.get(edge.dst).getNegative(EdgePort.class), Channel.TWO_WAY);
+                connect(components.get(edge.src).getNegative(EdgePort.class),
+                        components.get(edge.dst).getPositive(EdgePort.class), Channel.TWO_WAY);
+            }
 
             System.out.println(startNode);
 
