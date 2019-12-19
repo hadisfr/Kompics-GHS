@@ -9,4 +9,5 @@ import se.sics.kompics.KompicsEvent;
 public class ConnectMessage implements KompicsEvent {
     String src;
     String dst;
+    int level;
 }
