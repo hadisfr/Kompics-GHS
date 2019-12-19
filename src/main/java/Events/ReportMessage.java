@@ -4,7 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import se.sics.kompics.KompicsEvent;
 
-import java.util.List;
+import java.util.Stack;
 
 @Data
 @AllArgsConstructor
@@ -13,5 +13,5 @@ public class ReportMessage implements KompicsEvent {
     String dst;
     String nearestEdgeNodeName;
     int nearestEdgeNodeDistance;
-    List<String> nearestEdgeNodePath;
+    Stack<String> nearestEdgeNodePath;
 }
