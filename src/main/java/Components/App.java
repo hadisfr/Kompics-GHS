@@ -40,7 +40,7 @@ public class App extends ComponentDefinition {
     }
 
     public void readTable() {
-        File resourceFile = new File("src/main/java/tables.txt");
+        File resourceFile = new File("src/main/resources/tables.txt");
         try (Scanner scanner = new Scanner(resourceFile)) {
             int i = 0;
             while (scanner.hasNext()) {
