@@ -7,7 +7,7 @@
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <module name="dsca1" />
-        <module name="ShortestPath" />
+        <module name="ghs" />
       </profile>
     </annotationProcessing>
   </component>
