@@ -3,13 +3,17 @@ package Components;
 import Events.*;
 import Ports.EdgePort;
 import lombok.ToString;
+import misc.Edge;
 import misc.EdgeType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.sics.kompics.*;
 
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.*;
 import java.util.Map.Entry;
+import java.util.stream.Collectors;
 
 @ToString(onlyExplicitlyIncluded = true)
 public class Node extends ComponentDefinition {
@@ -41,66 +45,68 @@ public class Node extends ComponentDefinition {
     private Map<String, Integer> waitForMergeReceived;
     private Set<String> waitForAbsorbReport;
 
+    private int waitForFinalReport;
+    private List<Edge> edges;
+
     HashMap<String, Integer> neighboursWeights;
     HashMap<String, EdgeType> neighboursType;
-//    ArrayList<TableRow> routeTable = new ArrayList<>();
-//
-//    final Handler routingHandler = new Handler<RoutingMessage>() {
-//        @Override
-//        public void handle(RoutingMessage event) {
-//            if (nodeName.equalsIgnoreCase(event.getDst())) {
-//                System.out.println(nodeName + " received message : src " + event.src + " dst " + event.getDst());
-//                if (dist > event.weight) {
-//                    dist = event.weight;
-//                    parentName = event.src;
-//                    trigger(new FinalReportMessage(nodeName, parentName, dist, routeTable), sendPort);
-//                    System.out.println(String.format("node %s dist is: %s", nodeName, rootName, dist));
-//                    System.out.println(String.format("node %s parent is: %s", nodeName, rootName, parentName));
-//                    for (Map.Entry<String, Integer> entry : neighboursWeights.entrySet()) {
-//                        if (!entry.getKey().equalsIgnoreCase(parentName)) {
-//                            trigger(new RoutingMessage(nodeName, entry.getKey(), dist + entry.getValue(), entry.getValue()), sendPort);
-//                        }
-//                    }
-//                }
-//            }
-//        }
-//    };
-//
-//
-//    final Handler finalReportHandler = new Handler<FinalReportMessage>() {
-//        @Override
-//        public void handle(FinalReportMessage event) {
-//            if (nodeName.equalsIgnoreCase(event.getDst())) {
-//                ArrayList<TableRow> newRoute = new ArrayList<>();
-//                newRoute.add(new TableRow(event.src, event.src, event.dist));
-//                for (TableRow tr : event.route_table) {
-//                    tr.first_node = event.src;
-//                    newRoute.add(tr);
-//                }
-//                for (TableRow tr : routeTable) {
-//                    boolean remove = false;
-//                    for (TableRow t : newRoute) {
-//                        if (tr.dst.equals(t.dst)) {
-//                            remove = true;
-//                        }
-//                    }
-//                    if (!remove) {
-//                        newRoute.add(tr);
-//                    }
-//                }
-//                routeTable = newRoute;
-//                if (parentName != null)
-//                    trigger(new FinalReportMessage(nodeName, parentName, dist, routeTable), sendPort);
-//                Path path = Paths.get("src/main/java/Routes/table" + nodeName + ".txt");
-//                OpenOption[] options = new OpenOption[]{WRITE, CREATE};
-//                try {
-//                    Files.write(path, routeTable.toString().getBytes(), options);
-//                } catch (IOException e) {
-//                    e.printStackTrace();
-//                }
-//            }
-//        }
-//    };
+
+    final Handler finalReportRequestHandler = new Handler<FinalReportRequestMessage>() {
+        @Override
+        public void handle(FinalReportRequestMessage event) {
+            if (nodeName.equalsIgnoreCase(event.getDst())) {
+                handleFinalReportRequest(event);
+            }
+        }
+    };
+
+    private void handleFinalReportRequest(FinalReportRequestMessage event) {
+        waitForFinalReport = 0;
+        for (Entry<String, EdgeType> entry : neighboursType.entrySet()) {
+            if (entry.getValue() == EdgeType.Branch && !entry.getKey().equalsIgnoreCase(parentName)) {
+                waitForFinalReport++;
+                trigger(new FinalReportRequestMessage(nodeName, entry.getKey()), sendPort);
+            }
+        }
+        handleFinalReport();
+    }
+
+    final Handler finalReportHandler = new Handler<FinalReportMessage>() {
+        @Override
+        public void handle(FinalReportMessage event) {
+            if (nodeName.equalsIgnoreCase(event.getDst())) {
+                edges.addAll(event.getEdges());
+                waitForFinalReport--;
+                handleFinalReport();
+            }
+        }
+    };
+
+    private void handleFinalReport() {
+        if (waitForFinalReport == 0) {
+            for (Entry<String, EdgeType> entry : neighboursType.entrySet()) {
+                if (entry.getValue() == EdgeType.Branch && !entry.getKey().equalsIgnoreCase(parentName)) {
+                    edges.add(new Edge(nodeName, entry.getKey(), neighboursWeights.get(entry.getKey())));
+                }
+            }
+            if (!isRoot()) {
+                trigger(new FinalReportMessage(nodeName, parentName, edges), sendPort);
+            } else {
+                logger.warn("edges: {}", edges);
+                writeMst(edges);
+            }
+        }
+    }
+
+    private void writeMst(List<Edge> edges) {
+        try {
+            FileWriter fileWriter = new FileWriter("src/main/java/mst.txt");
+            fileWriter.write(edges.stream().map(Edge::toString).collect(Collectors.joining("\n")) + "\n");
+            fileWriter.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 
     final Handler testHandler = new Handler<TestMessage>() {
         @Override
@@ -176,7 +182,7 @@ public class Node extends ComponentDefinition {
                 logger.info("{} ({}): recv {} while waitForMerge={}", nodeName, rootName, event, waitForMergeSent);
 
                 if (event.getLevel() < level) {
-                    assert waitForMergeSent.contains(event.getSrc()) : "merge state in absorb level state";
+                    assert !waitForMergeSent.contains(event.getSrc()) : "merge state in absorb level state (" + event.getSrc() + " in " + nodeName + ")";
                     absorb(event.getSrc());
                 } else {
                     assert !waitForMergeReceived.containsValue(event.getSrc()) : "duplicate connect?";
@@ -197,7 +203,7 @@ public class Node extends ComponentDefinition {
         for (Iterator<Entry<String, Integer>> it = waitForMergeReceived.entrySet().iterator(); it.hasNext(); ) {
             Entry<String, Integer> entry = it.next();
             if (entry.getValue() < level) {
-                assert waitForMergeSent.contains(entry.getKey()) : "merge state in absorb level state";
+                assert !waitForMergeSent.contains(entry.getKey()) : "merge state in absorb level state (" + entry.getKey() + " in " + nodeName + ")";
                 it.remove();
                 nodesToBeAbsorbed.add(entry.getKey());
             }
@@ -278,8 +284,9 @@ public class Node extends ComponentDefinition {
                     nearestEdgeNodeName = event.getNearestEdgeNodeName();
                     nearestEdgeNodePath = (Stack<String>) event.getNearestEdgeNodePath().clone();
                 }
-                assert waitForReport > 0: "negative waitForReport";
+//                assert waitForReport > 0: "negative waitForReport";
                 waitForReport--;
+                logger.debug("{} ({}): waitForReport={}, waitForTestResult={}", nodeName, rootName, waitForReport, waitForTestResult);
                 sendReport();
             }
         }
@@ -302,6 +309,7 @@ public class Node extends ComponentDefinition {
 
         waitForReport = 0;
         waitForTestResult = false;
+        logger.debug("{} ({}): waitForReport={}, waitForTestResult={}", nodeName, rootName, waitForReport, waitForTestResult);
 
         waitForMergeSent.remove(event.getSrc());
         waitForMergeReceived.remove(event.getSrc());
@@ -314,6 +322,8 @@ public class Node extends ComponentDefinition {
         for (Entry<String, EdgeType> entry : neighboursType.entrySet()) {
             if (entry.getValue() == EdgeType.Branch && !entry.getKey().equalsIgnoreCase(parentName)) {
                 waitForReport++;
+                logger.debug("{} ({}): waitForReport={}, waitForTestResult={}", nodeName, rootName, waitForReport, waitForTestResult);
+                logger.debug("{} ({}): neighboursType={} inside {}", nodeName, rootName, neighboursType, "handle initiate");
                 trigger(new InitiateMessage(nodeName, entry.getKey(), event.getRootName(), event.getLevel()), sendPort);
             }
         }
@@ -335,10 +345,20 @@ public class Node extends ComponentDefinition {
             if (!isRoot()) {
                 trigger(new ReportMessage(nodeName, parentName, nearestEdgeNodeName, nearestEdgeNodeDistance, nearestEdgeNodePath), sendPort);
             } else {
-                String dst = nearestEdgeNodePath.pop();
-                handleChangeRoot(new ChangeRootMessage(nodeName, dst, nearestEdgeNodeName, nearestEdgeNodePath));
+                if (nearestEdgeNodeDistance < INFINITE_DISTANCE) {
+                    String dst = nearestEdgeNodePath.pop();
+                    handleChangeRoot(new ChangeRootMessage(nodeName, dst, nearestEdgeNodeName, nearestEdgeNodePath));
+                } else {
+                    terminate();
+                }
             }
         }
+    }
+
+    private void terminate() {
+        logger.info("{} ({}): GHS terminated", nodeName, rootName);
+
+        handleFinalReportRequest(new FinalReportRequestMessage(nodeName, rootName));
     }
 
     private void sendTest() {
@@ -363,15 +383,6 @@ public class Node extends ComponentDefinition {
         @Override
         public void handle(Start event) {
             handleInitiateMessage(new InitiateMessage(nodeName, nodeName, nodeName, 0));
-
-//            if (isRoot()) {
-//                dist = 0;
-//                for (Map.Entry<String, Integer> entry : neighbours_weights.entrySet()) {
-//                    trigger(new RoutingMessage(nodeName, entry.getKey(),
-//                            dist + entry.getValue(), entry.getValue()), sendPort);
-//                }
-//
-//            }
         }
     };
 
@@ -393,6 +404,9 @@ public class Node extends ComponentDefinition {
         waitForReport = 0;
         waitForTestResult = false;
 
+        waitForFinalReport = 0;
+        edges = new ArrayList<>();
+
         nearestEdgeNodeName = null;
         nearestEdgeNodeDistance = INFINITE_DISTANCE;
         nearestEdgeNodePath = new Stack<>();
@@ -403,7 +417,7 @@ public class Node extends ComponentDefinition {
 
         subscribe(startHandler, control);
         List<Handler> handlers = Arrays.asList(
-//                routingHandler, finalReportHandler,
+                finalReportRequestHandler, finalReportHandler,
                 initiateHandler, testHandler, reportHandler, acceptHandler, rejectHandler, changeRootHandler, connectHandler
         );
         for (Handler handler : handlers)

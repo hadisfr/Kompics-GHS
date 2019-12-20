@@ -5,7 +5,7 @@ import se.sics.kompics.PortType;
 
 public class EdgePort extends PortType {
     {
-        positive(RoutingMessage.class);
+        positive(FinalReportRequestMessage.class);
         positive(FinalReportMessage.class);
         positive(InitiateMessage.class);
         positive(TestMessage.class);
@@ -14,7 +14,7 @@ public class EdgePort extends PortType {
         positive(RejectMessage.class);
         positive(ConnectMessage.class);
         positive(ChangeRootMessage.class);
-        negative(RoutingMessage.class);
+        negative(FinalReportRequestMessage.class);
         negative(FinalReportMessage.class);
         negative(InitiateMessage.class);
         negative(TestMessage.class);
