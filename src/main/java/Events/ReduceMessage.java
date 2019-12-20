@@ -6,7 +6,7 @@ import se.sics.kompics.KompicsEvent;
 
 @Data
 @AllArgsConstructor
-public class AcceptMessage implements KompicsEvent {
+public class ReduceMessage implements KompicsEvent {
     String src;
     String dst;
 }

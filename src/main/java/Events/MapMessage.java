@@ -6,9 +6,7 @@ import se.sics.kompics.KompicsEvent;
 
 @Data
 @AllArgsConstructor
-public class TestMessage implements KompicsEvent {
+public class MapMessage implements KompicsEvent {
     String src;
     String dst;
-    String rootName;
-    int level;
 }

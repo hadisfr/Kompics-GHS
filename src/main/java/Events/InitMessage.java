@@ -5,7 +5,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import se.sics.kompics.Init;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 
 @Data
@@ -13,4 +12,5 @@ import java.util.HashMap;
 public class InitMessage extends Init<Node> {
     public String nodeName;
     public HashMap<String, Integer> neighbours;
+    public String root;
 }

@@ -19,7 +19,6 @@ import java.util.Scanner;
 
 public class App extends ComponentDefinition {
 
-    String startNode = "";
     ArrayList<Edge> edges = new ArrayList<>();
     Map<String, Component> components = new HashMap<String, Component>();
 
@@ -40,28 +39,29 @@ public class App extends ComponentDefinition {
     }
 
     public void readTable() {
-        File resourceFile = new File("src/main/resources/tables.txt");
+        File resourceFile = new File("src/main/resources/mst.txt");
         try (Scanner scanner = new Scanner(resourceFile)) {
-            int i = 0;
+            String root = "";  // TODO find best root inside the node
             while (scanner.hasNext()) {
                 String line = scanner.nextLine();
 
-                if (i++ == 0)
-                    continue;
                 int weight = Integer.parseInt(line.split(",")[1]);
                 String rel = line.split(",")[0];
                 String src = rel.split("-")[0];
                 String dst = rel.split("-")[1];
                 edges.add(new Edge(src, dst, weight));
+
+                if (root.equals(""))
+                    root = src;
             }
 
             for (Edge edge : edges) {
                 if (!components.containsKey(edge.src)) {
-                    Component c = create(Node.class, new InitMessage(edge.src, findNeighbours(edge.src)));
+                    Component c = create(Node.class, new InitMessage(edge.src, findNeighbours(edge.src), root));
                     components.put(edge.src, c);
                 }
                 if (!components.containsKey(edge.dst)) {
-                    Component c = create(Node.class, new InitMessage(edge.dst, findNeighbours(edge.dst)));
+                    Component c = create(Node.class, new InitMessage(edge.dst, findNeighbours(edge.dst), root));
                     components.put(edge.dst, c);
                 }
                 connect(components.get(edge.src).getPositive(EdgePort.class),
@@ -69,15 +69,9 @@ public class App extends ComponentDefinition {
                 connect(components.get(edge.src).getNegative(EdgePort.class),
                         components.get(edge.dst).getPositive(EdgePort.class), Channel.TWO_WAY);
             }
-
-            System.out.println(startNode);
-
-
         } catch (IOException e) {
             e.printStackTrace();
         }
-
-
     }
 
     private HashMap<String, Integer> findNeighbours(String node) {
