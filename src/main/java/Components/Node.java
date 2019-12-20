@@ -32,7 +32,6 @@ public class Node extends ComponentDefinition {
     public String rootName;
     @ToString.Include
     public int level;
-//    public int dist = 10000;
 
     private int waitForReport;
     private boolean waitForTestResult;
@@ -100,7 +99,7 @@ public class Node extends ComponentDefinition {
 
     private void writeMst(List<Edge> edges) {
         try {
-            FileWriter fileWriter = new FileWriter("src/main/java/mst.txt");
+            FileWriter fileWriter = new FileWriter("src/main/resources/mst.txt");
             fileWriter.write(edges.stream().map(Edge::toString).collect(Collectors.joining("\n")) + "\n");
             fileWriter.close();
         } catch (IOException e) {
