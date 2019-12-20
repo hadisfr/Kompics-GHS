@@ -14,6 +14,7 @@ public class EdgePort extends PortType {
         positive(RejectMessage.class);
         positive(ConnectMessage.class);
         positive(ChangeRootMessage.class);
+        positive(AbsorbNoticeMessage.class);
         negative(FinalReportRequestMessage.class);
         negative(FinalReportMessage.class);
         negative(InitiateMessage.class);
@@ -23,4 +24,6 @@ public class EdgePort extends PortType {
         negative(RejectMessage.class);
         negative(ConnectMessage.class);
         negative(ChangeRootMessage.class);
-    }}
+        negative(AbsorbNoticeMessage.class);
+    }
+}

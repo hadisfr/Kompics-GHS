@@ -124,8 +124,10 @@ public class Node extends ComponentDefinition {
             if (neighboursType.get(event.getSrc()) == EdgeType.Basic)
                 neighboursType.put(event.getSrc(), EdgeType.Rejected);
             logger.debug("{} ({}): neighboursType={} inside {}", nodeName, rootName, neighboursType, "handle test");
+            logger.debug("{} ({}): send {}", nodeName, rootName, new RejectMessage(nodeName, event.getSrc()));
             trigger(new RejectMessage(nodeName, event.getSrc()), sendPort);
         } else if (level >= event.getLevel()) {
+            logger.debug("{} ({}): send {}", nodeName, rootName, new AcceptMessage(nodeName, event.getSrc()));
             trigger(new AcceptMessage(nodeName, event.getSrc()), sendPort);
         } else {
             postpone(event);
@@ -142,6 +144,25 @@ public class Node extends ComponentDefinition {
         public void handle(InitiateMessage event) {
             if (nodeName.equalsIgnoreCase(event.getDst()))
                 handleInitiateMessage(event);
+        }
+    };
+
+    final Handler absrobNoticeHandler = new Handler<AbsorbNoticeMessage>() {
+        @Override
+        public void handle(AbsorbNoticeMessage event) {
+            if (nodeName.equalsIgnoreCase(event.getDst())) {
+                logger.info("{} ({}): recv {}", nodeName, rootName, event);
+                handleInitiateAndAbsorbNoticeMessages(event.getSrc(), event.getRootName(), event.getLevel());
+                for (Entry<String, EdgeType> entry : neighboursType.entrySet()) {
+                    if (entry.getValue() == EdgeType.Branch && !entry.getKey().equalsIgnoreCase(parentName)) {
+                        waitForReport++;
+                        logger.debug("{} ({}): waitForReport={}, waitForTestResult={}", nodeName, rootName, waitForReport, waitForTestResult);
+                        logger.debug("{} ({}): neighboursType={} inside {}", nodeName, rootName, neighboursType, "handle absorb notice");
+                        logger.debug("{} ({}): send {}", nodeName, rootName, new InitiateMessage(nodeName, entry.getKey(), event.getRootName(), event.getLevel()));
+                        trigger(new AbsorbNoticeMessage(nodeName, entry.getKey(), event.getRootName(), event.getLevel()), sendPort);
+                    }
+                }
+            }
         }
     };
 
@@ -218,8 +239,10 @@ public class Node extends ComponentDefinition {
         neighboursType.put(partner, EdgeType.Branch);
         logger.debug("{} ({}): neighboursType={} inside {}", nodeName, rootName, neighboursType, "merge");
 
-        if (isNewRootAfterMergeWith(partner))
+        if (isNewRootAfterMergeWith(partner)) {
+            logger.debug("{} ({}): send {}", nodeName, rootName, new InitiateMessage(nodeName, nodeName, nodeName, level + 1));
             handleInitiateMessage(new InitiateMessage(nodeName, nodeName, nodeName, level + 1));
+        }
 
         handlePostponedMessages();
     }
@@ -236,7 +259,8 @@ public class Node extends ComponentDefinition {
         logger.debug("{} ({}): neighboursType={} inside {}", nodeName, rootName, neighboursType, "absorb");
 
         waitForAbsorbReport.add(parentName);
-        trigger(new InitiateMessage(nodeName, partner, rootName, level), sendPort);
+        logger.debug("{} ({}): send {}", nodeName, rootName, new AbsorbNoticeMessage(nodeName, partner, rootName, level));
+        trigger(new AbsorbNoticeMessage(nodeName, partner, rootName, level), sendPort);
 
         handlePostponedMessages();
     }
@@ -255,7 +279,7 @@ public class Node extends ComponentDefinition {
 
         if (event.getPath().size() > 0) {
             String dst = event.getPath().pop();
-            trigger(new ChangeRootMessage(nodeName, dst, event.getTarget(), event.getPath()), sendPort);
+            trigger(new ChangeRootMessage(nodeName, dst, event.getTarget(), (Stack<String>) event.getPath().clone()), sendPort);
         } else {
             trigger(new ConnectMessage(nodeName, event.getTarget(), level), sendPort);
 
@@ -286,25 +310,23 @@ public class Node extends ComponentDefinition {
                     nearestEdgeNodeName = event.getNearestEdgeNodeName();
                     nearestEdgeNodePath = (Stack<String>) event.getNearestEdgeNodePath().clone();
                 }
-//                assert waitForReport > 0: "negative waitForReport";
                 waitForReport--;
                 logger.debug("{} ({}): waitForReport={}, waitForTestResult={}", nodeName, rootName, waitForReport, waitForTestResult);
+                assert waitForReport >= 0 : "negative waitForReport";
                 sendReport();
             }
         }
     };
 
-    private void handleInitiateMessage(InitiateMessage event) {
-        logger.info("{} ({}): recv {}", nodeName, rootName, event);
-
-        rootName = event.getRootName();
-        level = event.getLevel();
-        parentName = event.getSrc();
+    private void handleInitiateAndAbsorbNoticeMessages(String msgSrc, String msgRootName, int msgLevel) {
+        rootName = msgRootName;
+        level = msgLevel;
+        parentName = msgSrc;
 
         if (!parentName.equalsIgnoreCase(nodeName)) {
             if (neighboursType.get(parentName) == EdgeType.Basic)
                 neighboursType.put(parentName, EdgeType.Branch);
-            logger.debug("{} ({}): neighboursType={} inside {}", nodeName, rootName, neighboursType, "handle initiate");
+            logger.debug("{} ({}): neighboursType={} inside {}", nodeName, rootName, neighboursType, "handle initiate & absorb notice");
         }
 
         handlePostponedMessages();
@@ -314,19 +336,24 @@ public class Node extends ComponentDefinition {
         waitForTestResult = false;
         logger.debug("{} ({}): waitForReport={}, waitForTestResult={}", nodeName, rootName, waitForReport, waitForTestResult);
 
-        waitForMergeSent.remove(event.getSrc());
-        waitForMergeReceived.remove(event.getSrc());
-        logger.debug("{} ({}): waitForMerge={} inside {}", nodeName, rootName, waitForMergeSent, "handle initiate");
+        waitForMergeSent.remove(msgSrc);
+        waitForMergeReceived.remove(msgSrc);
+        logger.debug("{} ({}): waitForMerge={} inside {}", nodeName, rootName, waitForMergeSent, "handle initiate & absorb notice");
 
         nearestEdgeNodeName = null;
         nearestEdgeNodeDistance = INFINITE_DISTANCE;
         nearestEdgeNodePath = new Stack<>();
+    }
 
+    private void handleInitiateMessage(InitiateMessage event) {
+        logger.info("{} ({}): recv {}", nodeName, rootName, event);
+        handleInitiateAndAbsorbNoticeMessages(event.getSrc(), event.getRootName(), event.getLevel());
         for (Entry<String, EdgeType> entry : neighboursType.entrySet()) {
             if (entry.getValue() == EdgeType.Branch && !entry.getKey().equalsIgnoreCase(parentName)) {
                 waitForReport++;
                 logger.debug("{} ({}): waitForReport={}, waitForTestResult={}", nodeName, rootName, waitForReport, waitForTestResult);
                 logger.debug("{} ({}): neighboursType={} inside {}", nodeName, rootName, neighboursType, "handle initiate");
+                logger.debug("{} ({}): send {}", nodeName, rootName, new InitiateMessage(nodeName, entry.getKey(), event.getRootName(), event.getLevel()));
                 trigger(new InitiateMessage(nodeName, entry.getKey(), event.getRootName(), event.getLevel()), sendPort);
             }
         }
@@ -344,13 +371,15 @@ public class Node extends ComponentDefinition {
     private void sendReport() {
         logger.debug("{} ({}): waitForReport={}, waitForTestResult={}", nodeName, rootName, waitForReport, waitForTestResult);
         if (waitForReport == 0 && !waitForTestResult) {
-            nearestEdgeNodePath.push(nodeName);
             if (!isRoot()) {
-                trigger(new ReportMessage(nodeName, parentName, nearestEdgeNodeName, nearestEdgeNodeDistance, nearestEdgeNodePath), sendPort);
+                if (nearestEdgeNodeDistance < INFINITE_DISTANCE)
+                    nearestEdgeNodePath.push(nodeName);
+                logger.debug("{} ({}): send {}", nodeName, rootName, new ReportMessage(nodeName, parentName, nearestEdgeNodeName, nearestEdgeNodeDistance, (Stack<String>) nearestEdgeNodePath.clone()));
+                trigger(new ReportMessage(nodeName, parentName, nearestEdgeNodeName, nearestEdgeNodeDistance, (Stack<String>) nearestEdgeNodePath.clone()), sendPort);
             } else {
                 if (nearestEdgeNodeDistance < INFINITE_DISTANCE) {
-                    String dst = nearestEdgeNodePath.pop();
-                    handleChangeRoot(new ChangeRootMessage(nodeName, dst, nearestEdgeNodeName, nearestEdgeNodePath));
+                    String dst = nearestEdgeNodePath.size() > 0 ? nearestEdgeNodePath.peek() : nodeName;
+                    handleChangeRoot(new ChangeRootMessage(nodeName, dst, nearestEdgeNodeName, (Stack<String>) nearestEdgeNodePath.clone()));
                 } else {
                     terminate();
                 }
@@ -421,7 +450,7 @@ public class Node extends ComponentDefinition {
         subscribe(startHandler, control);
         List<Handler> handlers = Arrays.asList(
                 finalReportRequestHandler, finalReportHandler,
-                initiateHandler, testHandler, reportHandler, acceptHandler, rejectHandler, changeRootHandler, connectHandler
+                initiateHandler, testHandler, reportHandler, acceptHandler, rejectHandler, changeRootHandler, connectHandler, absrobNoticeHandler
         );
         for (Handler handler : handlers)
             subscribe(handler, receivePort);
