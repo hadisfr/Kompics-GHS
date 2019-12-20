@@ -19,7 +19,6 @@ import java.util.Scanner;
 
 public class App extends ComponentDefinition {
 
-    String startNode = "";
     ArrayList<Edge> edges = new ArrayList<>();
     Map<String, Component> components = new HashMap<String, Component>();
 
@@ -69,15 +68,9 @@ public class App extends ComponentDefinition {
                 connect(components.get(edge.src).getNegative(EdgePort.class),
                         components.get(edge.dst).getPositive(EdgePort.class), Channel.TWO_WAY);
             }
-
-            System.out.println(startNode);
-
-
         } catch (IOException e) {
             e.printStackTrace();
         }
-
-
     }
 
     private HashMap<String, Integer> findNeighbours(String node) {
