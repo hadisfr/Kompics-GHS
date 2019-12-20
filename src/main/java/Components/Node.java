@@ -258,7 +258,6 @@ public class Node extends ComponentDefinition {
             neighboursType.put(partner, EdgeType.Branch);
         logger.debug("{} ({}): neighboursType={} inside {}", nodeName, rootName, neighboursType, "absorb");
 
-        waitForAbsorbReport.add(parentName);
         logger.debug("{} ({}): send {}", nodeName, rootName, new AbsorbNoticeMessage(nodeName, partner, rootName, level));
         trigger(new AbsorbNoticeMessage(nodeName, partner, rootName, level), sendPort);
 
@@ -299,11 +298,6 @@ public class Node extends ComponentDefinition {
         public void handle(ReportMessage event) {
             if (nodeName.equalsIgnoreCase(event.getDst())) {
                 logger.info("{} ({}): recv {}", nodeName, rootName, event);
-
-                if (waitForAbsorbReport.contains(event.getSrc())) {
-                    waitForAbsorbReport.remove(event.getSrc());
-                    return;
-                }
 
                 if (event.getNearestEdgeNodeDistance() < nearestEdgeNodeDistance) {
                     nearestEdgeNodeDistance = event.getNearestEdgeNodeDistance();
@@ -445,7 +439,6 @@ public class Node extends ComponentDefinition {
         postponedMessages = new ArrayList<>();
         waitForMergeSent = new HashSet<>();
         waitForMergeReceived = new HashMap<>();
-        waitForAbsorbReport = new HashSet<>();
 
         subscribe(startHandler, control);
         List<Handler> handlers = Arrays.asList(
