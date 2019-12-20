@@ -122,7 +122,8 @@ public class Node extends ComponentDefinition {
         logger.info("{} ({}): proc {}", nodeName, rootName, event);
 
         if (rootName.equalsIgnoreCase(event.getRootName())) {
-            neighboursType.put(event.getSrc(), EdgeType.Rejected);
+            if (neighboursType.get(event.getSrc()) == EdgeType.Basic)
+                neighboursType.put(event.getSrc(), EdgeType.Rejected);
             logger.debug("{} ({}): neighboursType={} inside {}", nodeName, rootName, neighboursType, "handle test");
             trigger(new RejectMessage(nodeName, event.getSrc()), sendPort);
         } else if (level >= event.getLevel()) {
@@ -166,7 +167,8 @@ public class Node extends ComponentDefinition {
         public void handle(RejectMessage event) {
             if (nodeName.equalsIgnoreCase(event.getDst())) {
                 logger.info("{} ({}): recv {}", nodeName, rootName, event);
-                neighboursType.put(event.getSrc(), EdgeType.Rejected);
+                if (neighboursType.get(event.getSrc()) == EdgeType.Basic)
+                    neighboursType.put(event.getSrc(), EdgeType.Rejected);
                 logger.debug("{} ({}): neighboursType={} inside {}", nodeName, rootName, neighboursType, "handle reject");
                 waitForTestResult = false;
                 sendTest();
@@ -230,7 +232,8 @@ public class Node extends ComponentDefinition {
     private void absorb(String partner) {
         logger.warn("{} ({}): absorb {} into {}", nodeName, rootName, partner, nodeName);
 
-        neighboursType.put(partner, EdgeType.Branch);
+        if (neighboursType.get(partner) == EdgeType.Basic)
+            neighboursType.put(partner, EdgeType.Branch);
         logger.debug("{} ({}): neighboursType={} inside {}", nodeName, rootName, neighboursType, "absorb");
 
         waitForAbsorbReport.add(parentName);
@@ -300,7 +303,8 @@ public class Node extends ComponentDefinition {
         parentName = event.getSrc();
 
         if (!parentName.equalsIgnoreCase(nodeName)) {
-            neighboursType.put(parentName, EdgeType.Branch);
+            if (neighboursType.get(parentName) == EdgeType.Basic)
+                neighboursType.put(parentName, EdgeType.Branch);
             logger.debug("{} ({}): neighboursType={} inside {}", nodeName, rootName, neighboursType, "handle initiate");
         }
 
