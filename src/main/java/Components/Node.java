@@ -42,7 +42,7 @@ public class Node extends ComponentDefinition {
     private List<TestMessage> postponedMessages;
     private Set<String> waitForMergeSent;
     private Map<String, Integer> waitForMergeReceived;
-    private Set<String> waitForAbsorbReport;
+    private boolean shouldSendInitOnAbsorb;
 
     private int waitForFinalReport;
     private List<Edge> edges;
@@ -258,8 +258,14 @@ public class Node extends ComponentDefinition {
             neighboursType.put(partner, EdgeType.Branch);
         logger.debug("{} ({}): neighboursType={} inside {}", nodeName, rootName, neighboursType, "absorb");
 
-        logger.debug("{} ({}): send {}", nodeName, rootName, new AbsorbNoticeMessage(nodeName, partner, rootName, level));
-        trigger(new AbsorbNoticeMessage(nodeName, partner, rootName, level), sendPort);
+        if (shouldSendInitOnAbsorb || true) {  // based on Nancy Lynch'es textbook
+            waitForReport++;
+            logger.debug("{} ({}): send {}", nodeName, rootName, new InitiateMessage(nodeName, partner, rootName, level));
+            trigger(new InitiateMessage(nodeName, partner, rootName, level), sendPort);
+        } else {
+            logger.debug("{} ({}): send {}", nodeName, rootName, new AbsorbNoticeMessage(nodeName, partner, rootName, level));
+            trigger(new AbsorbNoticeMessage(nodeName, partner, rootName, level), sendPort);
+        }
 
         handlePostponedMessages();
     }
@@ -306,7 +312,7 @@ public class Node extends ComponentDefinition {
                 }
                 waitForReport--;
                 logger.debug("{} ({}): waitForReport={}, waitForTestResult={}", nodeName, rootName, waitForReport, waitForTestResult);
-                assert waitForReport >= 0 : "negative waitForReport";
+//                assert waitForReport >= 0 : "negative waitForReport";
                 sendReport();
             }
         }
@@ -341,6 +347,7 @@ public class Node extends ComponentDefinition {
 
     private void handleInitiateMessage(InitiateMessage event) {
         logger.info("{} ({}): recv {}", nodeName, rootName, event);
+        shouldSendInitOnAbsorb = true;
         handleInitiateAndAbsorbNoticeMessages(event.getSrc(), event.getRootName(), event.getLevel());
         for (Entry<String, EdgeType> entry : neighboursType.entrySet()) {
             if (entry.getValue() == EdgeType.Branch && !entry.getKey().equalsIgnoreCase(parentName)) {
@@ -364,6 +371,7 @@ public class Node extends ComponentDefinition {
 
     private void sendReport() {
         logger.debug("{} ({}): waitForReport={}, waitForTestResult={}", nodeName, rootName, waitForReport, waitForTestResult);
+        shouldSendInitOnAbsorb = false;
         if (waitForReport == 0 && !waitForTestResult) {
             if (!isRoot()) {
                 if (nearestEdgeNodeDistance < INFINITE_DISTANCE)
@@ -439,6 +447,7 @@ public class Node extends ComponentDefinition {
         postponedMessages = new ArrayList<>();
         waitForMergeSent = new HashSet<>();
         waitForMergeReceived = new HashMap<>();
+        shouldSendInitOnAbsorb = false;
 
         subscribe(startHandler, control);
         List<Handler> handlers = Arrays.asList(
